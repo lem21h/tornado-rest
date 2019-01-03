@@ -14,7 +14,7 @@ from uuid import uuid4, UUID
 
 from bson import ObjectId
 
-from core import iso8601
+from maio.core import iso8601
 
 PHONE_RE = re.compile(r'^\+?([0-9 ])+$')
 PHONE_9_RE = re.compile(r'^\+?([0-9 ]){9}$')

@@ -12,8 +12,8 @@ from pymongo.cursor import Cursor
 from pymongo.database import Database
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from core.data import Document
-from core.di import DI, ApiService
+from maio.core.data import Document
+from maio.core.di import DI, ApiService
 
 T = TypeVar('T')
 

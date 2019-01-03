@@ -11,10 +11,10 @@ from tornado.ioloop import IOLoop
 from tornado.routing import ReversibleRuleRouter
 from tornado.web import Application, RequestHandler
 
-from core.configs import TornadoConfig
-from core.di import DI, ApiService
-from core.handlers import AclMixin, RestHandler
-from core.log import LOG_TORNADO_GENERAL
+from maio.core.configs import TornadoConfig
+from maio.core.di import DI, ApiService
+from maio.core.handlers import AclMixin, RestHandler
+from maio.core.log import LOG_TORNADO_GENERAL
 
 ApiServicesCont = namedtuple('ApiServicesCont', ('clazz', 'is_async', 'config'))
 MAX_WAIT_SECONDS_BEFORE_SHUTDOWN = 3
@@ -88,7 +88,7 @@ def sig_handler(server, sig, frame):
     io_loop.add_callback_from_signal(shutdown)
 
 
-def _get_real_permissions_from_handler(clazz: Type[AclMixin], root_permissions):
+def _get_real_permissions_from_handler(clazz: Type[AclMixin, RestHandler], root_permissions):
     permissions = []
 
     if clazz.get != RestHandler.get:
@@ -111,10 +111,9 @@ class RestAPIApp(Application):
 
     __slots__ = ['_startDate', '_services', '_reverse_routing_map', '_acl_list']
 
-    def __init__(self, config: TornadoConfig):
-        from controllers.routing import DEFAULT_ROUTES, ROUTING
+    def __init__(self, config: TornadoConfig, routing, default_routes):
 
-        super().__init__(DEFAULT_ROUTES, config.web.host, None, **config.tornado.to_dict())
+        super().__init__(default_routes, config.web.host, None, **config.tornado.to_dict())
         RestAPIApp._config = config
 
         from datetime import datetime
@@ -124,7 +123,7 @@ class RestAPIApp(Application):
         self._services = []
         self._reverse_routing_map = {}
         self._acl_list = {}
-        self._buildRouting(ROUTING)
+        self._buildRouting(routing)
 
     def _buildRouting(self, routing):
         from tornado.routing import Rule, AnyMatches, PathMatches
@@ -184,7 +183,7 @@ class RestAPIApp(Application):
 
     @classmethod
     def _initLogging(cls):
-        from core.log import defineLogging
+        from maio.core.log import defineLogging
 
         cls._config.logging.relpath = cls._config.baseRelativePathSafe(cls._config.logging.relpath)
         defineLogging(cls._config.logging)

@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Any, Dict, Callable
 
-from core.handlers import NotFoundRestHandler
+from maio.core.handlers import NotFoundRestHandler
 
 
 class _BaseConfig(object):

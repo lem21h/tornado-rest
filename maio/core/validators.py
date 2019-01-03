@@ -3,11 +3,10 @@ import re
 from datetime import datetime
 from typing import NamedTuple, Callable, Dict, Optional, Union, List, Set, Tuple, Any
 
-from core.data import VO
-from core.helpers import (RESULT_OK, FunctionResult, RESULT_ERR, remove_tags, parse_phone_number, parse_date, parse_int, parse_uuid, parse_objectId,
-                          parse_bool, parse_float)
-from core.iso3166 import countries_by_alpha3
-
+from maio.core.data import VO
+from maio.core.helpers import (RESULT_OK, FunctionResult, RESULT_ERR, remove_tags, parse_phone_number, parse_date, parse_int, parse_uuid, parse_objectId,
+                               parse_bool, parse_float)
+from maio.core.iso3166 import countries_by_alpha3
 
 _EMAIL_RE = re.compile(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)')
 

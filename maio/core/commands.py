@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Any, Optional, Union, NamedTuple, Type, Callable, Dict, Awaitable, List, Tuple
 from uuid import UUID
 
-from core.helpers import parse_bool, parse_date_to_unix_ts, parse_uuid, parse_int, FunctionResult, parse_float
-from core.mongo import MongoAsyncRepository
+from maio.core.helpers import parse_bool, parse_date_to_unix_ts, parse_uuid, parse_int, FunctionResult, parse_float
+from maio.core.mongo import MongoAsyncRepository
 
 
 class AbstractCommand(object):

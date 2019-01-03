@@ -13,11 +13,11 @@ from tornado import httputil
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
-from core.data import CustomJsonEncoder
-from core.exceptions import HTTPBaseError, HTTP400BadRequestError, HTTP406NotAcceptable, BasicErrorCodes, HTTP403ForbiddenError, HTTP404NotFoundError
-from core.helpers import parse_uuid, parse_bool, parse_date_to_unix_ts
-from core.log import LOG_EXCEPTIONS, LOG_MAIN
-from core.validators import SimpleValidator
+from maio.core.data import CustomJsonEncoder
+from maio.core.exceptions import HTTPBaseError, HTTP400BadRequestError, HTTP406NotAcceptable, BasicErrorCodes, HTTP403ForbiddenError, HTTP404NotFoundError
+from maio.core.helpers import parse_uuid, parse_bool, parse_date_to_unix_ts
+from maio.core.log import LOG_EXCEPTIONS, LOG_MAIN
+from maio.core.validators import SimpleValidator
 
 
 def _log_exception(exception, uri, headers_iter, body, trace_log):
