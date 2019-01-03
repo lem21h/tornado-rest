@@ -6,9 +6,9 @@ with open("requirements.txt", "r") as file:
     requirements = file.readlines()
 
 setup(
-    name="tornado-rest",
+    name="tornado_rest",
     version="1.0",
-    packages=['tornado-rest.core'],
+    packages=['tornado_rest.core'],
     install_requires=requirements,
     python_requires='>=3.7',
     zip_safe=True,
