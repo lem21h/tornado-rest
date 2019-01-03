@@ -88,7 +88,7 @@ def sig_handler(server, sig, frame):
     io_loop.add_callback_from_signal(shutdown)
 
 
-def _get_real_permissions_from_handler(clazz: Type[AclMixin, RestHandler], root_permissions):
+def _get_real_permissions_from_handler(clazz: Type[AclMixin], root_permissions):
     permissions = []
 
     if clazz.get != RestHandler.get:
@@ -111,9 +111,9 @@ class RestAPIApp(Application):
 
     __slots__ = ['_startDate', '_services', '_reverse_routing_map', '_acl_list']
 
-    def __init__(self, config: TornadoConfig, routing, default_routes):
+    def __init__(self, config: TornadoConfig, routing, base_routing):
 
-        super().__init__(default_routes, config.web.host, None, **config.tornado.to_dict())
+        super().__init__(base_routing, config.web.host, None, **config.tornado.to_dict())
         RestAPIApp._config = config
 
         from datetime import datetime
@@ -173,13 +173,13 @@ class RestAPIApp(Application):
         return self._acl_list
 
     @classmethod
-    def build(cls, config):
+    def build(cls, config, routing, base_routing):
         cls._config = config
 
         cls._initDI()
         cls._initLogging()
 
-        return cls._initApp()
+        return cls._initApp(routing, base_routing)
 
     @classmethod
     def _initLogging(cls):
@@ -194,8 +194,8 @@ class RestAPIApp(Application):
         DI.add('app_config', cls._config)
 
     @classmethod
-    def _initApp(cls):
-        app = cls(cls._config)
+    def _initApp(cls, routing, base_routing):
+        app = cls(cls._config, routing, base_routing)
         app.ui_modules = {}
         return app
 
