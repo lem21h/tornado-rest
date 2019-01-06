@@ -184,7 +184,7 @@ class MongoFileStorage(object):
         return cls.__bucket__
 
     @classmethod
-    def uploadFile(cls, filename: str, file_data: Union[bytes, str], content_type: str, metadata: dict = None) -> ObjectId:
+    def uploadFile(cls, filename: str, file_data: Union[bytes, str], content_type: str, metadata: dict = None) -> Union[ObjectId, Awaitable[ObjectId]]:
         if content_type:
             if metadata:
                 metadata['contentType'] = content_type

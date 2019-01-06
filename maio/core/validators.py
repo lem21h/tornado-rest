@@ -1,6 +1,8 @@
 # coding=utf-8
+import binascii
 import re
 from datetime import datetime
+from encodings.base64_codec import base64_decode
 from typing import NamedTuple, Callable, Dict, Optional, Union, List, Set, Tuple, Any
 
 from maio.core.data import VO
@@ -172,6 +174,113 @@ def _val_address(value, required: int = ADDR_REQ_CITY & ADDR_REQ_COUNTRY):
         return FunctionResult(RESULT_OK, value)
 
 
+_PNG_HEADER = bytes((0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
+_PNG_TRAILER = bytes((0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82))
+
+
+def val_png(contents: bytes):
+    if not contents.startswith(_PNG_HEADER):
+        return FunctionResult(RESULT_ERR, 'Invalid PNG file')
+    if not contents.endswith(_PNG_TRAILER):
+        return FunctionResult(RESULT_ERR, 'Invalid PNG file')
+    return FunctionResult(RESULT_OK, None)
+
+
+_JPEG_HEADER = bytes((0xFF, 0xD8, 0xFF))
+_JPEG_TRAILER = bytes((0xFF, 0xD9))
+
+
+def val_jpg(contents):
+    if not contents.startswith(_JPEG_HEADER):
+        return FunctionResult(RESULT_ERR, 'Invalid JPEG file')
+    if not contents.endswith(_JPEG_TRAILER):
+        return FunctionResult(RESULT_ERR, 'Invalid JPEG file')
+
+    if 0xE0 <= contents[4] <= 0xE8:
+        return FunctionResult(RESULT_OK, None)
+    else:
+        return FunctionResult(RESULT_ERR, 'Invalid JPEG file')
+
+
+_GIF_HEADER = bytes((0x47, 0x49, 0x46, 0x38))
+_GIF_TRAILER = bytes((0x00, 0x3B))
+
+
+def val_gif(contents):
+    if not contents.startswith(_GIF_HEADER):
+        return FunctionResult(RESULT_ERR, 'Invalid GIF file')
+    if not contents.endswith(_GIF_TRAILER):
+        return FunctionResult(RESULT_ERR, 'Invalid GIF file')
+
+    if contents[4] not in (0x37, 0x39) or contents[5] != 0x61:
+        return FunctionResult(RESULT_ERR, 'Invalid GIF file')
+
+
+class _ImageValidator:
+    PNG = 1
+    JPEG = 2
+    GIF = 4
+
+    _IMG_VAL = {
+        b'jpeg': val_jpg,
+        b'gif': val_gif,
+        b'png': val_png,
+    }
+
+    _IMG_TYPES = {
+        b'jpeg': JPEG,
+        b'gif': GIF,
+        b'png': PNG,
+    }
+
+    class Image(NamedTuple):
+        img_type: str
+        img_contents: bytes
+
+    @classmethod
+    def validate(cls, contents: Union[bytes, str], types: int = PNG + JPEG + GIF):
+        if not contents:
+            return FunctionResult(RESULT_OK, contents)
+        if isinstance(contents, str):
+            contents = bytes(contents, 'ascii')
+        header = bytes(memoryview(contents)[0:36])
+        if len(header) != 36:
+            return FunctionResult(RESULT_ERR, 'Not valid data contents. Content too short')
+        if not header.startswith(b'data:image/'):
+            return FunctionResult(RESULT_ERR, 'Not valid data contents. Expected image data')
+        img = header.split(b';', 1)
+        if len(img) != 2:
+            return FunctionResult(RESULT_ERR, 'Not valid data contents. Expected image data')
+
+        image_type = img[0][11:]
+        val = cls._IMG_VAL.get(image_type)
+        if cls._IMG_TYPES.get(image_type) & types == 0 or not val:
+            formats = []
+            if types & cls.PNG:
+                formats.append('PNG')
+            if types & cls.JPEG:
+                formats.append('JPEG')
+            if types & cls.GIF:
+                formats.append('GIF')
+            formats = ', '.join(formats)
+            return FunctionResult(RESULT_ERR, f'Unknown image type. Expected {formats}')
+
+        if not img[1].startswith(b'base64,'):
+            return FunctionResult(RESULT_ERR, 'Unknown image type. Expected base64 contents')
+
+        content_start = len(img[0]) + 8
+        try:
+            image_bytes = base64_decode(contents[content_start:])[0]
+        except (TypeError, binascii.Error) as ex:
+            return FunctionResult(RESULT_ERR, f'Invalid image contents. {ex}')
+
+        result = val(image_bytes)
+        if result.status == RESULT_OK:
+            return FunctionResult(RESULT_OK, cls.Image(img_type=image_type.decode('ascii'), img_contents=image_bytes))
+        else:
+            return result
+
+
 def _just_fail(value):
     return FunctionResult(RESULT_ERR, "Fail")
 
@@ -274,6 +383,19 @@ class Val:
     @classmethod
     def values_in(cls, available: Union[List, Set, Tuple]):
         return _FieldValidator(_val_value_in, {'available': available})
+
+    @classmethod
+    def image(cls, png: bool = True, jpg: bool = True, gif: bool = True):
+        accepted_types = 0
+        if png:
+            accepted_types += _ImageValidator.PNG
+        if jpg:
+            accepted_types += _ImageValidator.JPEG
+        if gif:
+            accepted_types += _ImageValidator.GIF
+        return _FieldValidator(_ImageValidator.validate, {
+            'types': accepted_types
+        })
 
     @classmethod
     def address(cls, req_city: bool = False, req_country: bool = False, req_street: bool = False, req_district: bool = False):

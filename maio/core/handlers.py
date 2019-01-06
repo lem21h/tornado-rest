@@ -1,14 +1,17 @@
 # coding=utf-8
+import email
 import json
 import logging
 import time
 import traceback
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Optional
 
 import tornado
 import tornado.httputil
 import tornado.web
+from gridfs import GridOut
 from tornado import httputil
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
@@ -288,6 +291,53 @@ class ReqUtils:
         if raise_error and not uuid_obj:
             raise HTTP400BadRequestError(BasicErrorCodes.BAD_UUID)
         return uuid_obj
+
+    @staticmethod
+    async def send_file(h_request: RequestHandler, fp: GridOut, cache_time: int = 0):
+        # If-Modified-Since header is only good to the second.
+        modified = fp.upload_date.replace(microsecond=0)
+        h_request.set_header("Last-Modified", modified)
+
+        # MD5 is calculated on the MongoDB server when GridFS file is created
+        h_request.set_header("Etag", f'"{fp.md5}"')
+
+        mime_type = fp.content_type
+        if not mime_type:
+            mime_type = fp.metadata.get('contentType')
+
+        # Starting from here, largely a copy of StaticFileHandler
+        if mime_type:
+            h_request.set_header("Content-Type", mime_type)
+
+        if cache_time > 0:
+            h_request.set_header("Expires", datetime.utcnow() + timedelta(seconds=cache_time))
+            h_request.set_header("Cache-Control", f"max-age={cache_time}")
+        else:
+            h_request.set_header("Cache-Control", "public")
+
+        # Check the If-Modified-Since, and don't send the result if the
+        # content has not been modified
+        ims_value = h_request.request.headers.get("If-Modified-Since")
+        if ims_value is not None:
+            date_tuple = email.utils.parsedate(ims_value)
+
+            # If our MotorClient is tz-aware, assume the naive ims_value is in
+            # its time zone.
+            if_since = datetime.fromtimestamp(time.mktime(date_tuple)).replace(tzinfo=modified.tzinfo)
+
+            if if_since >= modified:
+                h_request.set_status(304)
+                return
+
+        # Same for Etag
+        etag = h_request.request.headers.get("If-None-Match")
+        if etag is not None and etag.strip('"') == fp.md5:
+            h_request.set_status(304)
+            return
+
+        h_request.set_header("Content-Length", fp.length)
+        await fp.stream_to_handler(h_request)
+        h_request.finish()
 
 
 class NotFoundRestHandler(RestHandler):
