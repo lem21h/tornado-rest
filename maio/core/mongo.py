@@ -44,11 +44,11 @@ class AbstractMapper(object):
     DB_KEY = 'id'
 
     @classmethod
-    def serialize(cls, data: Document) -> Dict[str, Any]:
+    def serialize(cls, data: Document, fields: Optional[Tuple] = None) -> Dict[str, Any]:
         raise NotImplementedError()
 
     @classmethod
-    def unserialize(cls, data: Dict[str, Any], clazz: Type[Document]) -> T:
+    def unserialize(cls, data: Dict[str, Any], clazz: Type[T]) -> T:
         raise NotImplementedError()
 
 
@@ -122,6 +122,9 @@ class AbstractMongoConnection(ApiService):
     def getGridFs(self, collection: str = 'fs'):
         raise NotImplementedError()
 
+    def verify_bucket(self, bucket):
+        raise NotImplementedError()
+
 
 class MongoAsyncConnection(AbstractMongoConnection):
     __slots__ = ('_db_client', '_file_client', '_config', '_io_loop')
@@ -147,6 +150,9 @@ class MongoAsyncConnection(AbstractMongoConnection):
         if not self._file_client:
             self._file_client = MotorGridFSBucket(self.getDatabase(), collection)
 
+    def verify_bucket(self, bucket: MotorGridFSBucket) -> bool:
+        return bucket.get_io_loop() == self._io_loop
+
 
 class MongoSyncConnection(AbstractMongoConnection):
     def getClient(self, refresh: bool = False) -> MongoClient:
@@ -168,9 +174,13 @@ class MongoSyncConnection(AbstractMongoConnection):
             self._file_client = GridFS(self.getDatabase(), collection)
         return self._file_client
 
+    def verify_bucket(self, bucket: GridFSBucket) -> bool:
+        return True
+
 
 class MongoFileStorage(object):
     __bucket__ = None
+    __grid_fs__ = None
     __bucketName__: str = 'fs'
 
     @classmethod
@@ -179,9 +189,15 @@ class MongoFileStorage(object):
 
     @classmethod
     def bucket(cls) -> GridFSBucket:
-        if not cls.__bucket__:
+        if cls.__bucket__ is None or not cls.connection().verify_bucket(cls.__bucket__):
             cls.__bucket__ = cls.connection().getFileBucket(cls.__bucketName__)
         return cls.__bucket__
+
+    @classmethod
+    def grid_fs(cls):
+        if not cls.__grid_fs__:
+            cls.__grid_fs__ = cls.connection().getGridFs(cls.__bucketName__)
+        return cls.__grid_fs__
 
     @classmethod
     def uploadFile(cls, filename: str, file_data: Union[bytes, str], content_type: str, metadata: dict = None) -> Union[ObjectId, Awaitable[ObjectId]]:
