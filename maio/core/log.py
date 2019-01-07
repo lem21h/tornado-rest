@@ -31,8 +31,6 @@ def defineLogging(log_config, logs_to_define: Union[List, Tuple, str] = None):
         else:
             _init_single_log(formatter, log_config.level, logs_to_define, log_config.relpath, to_console, to_file)
 
-    _init_single_log(formatter, logging.DEBUG, LOG_EXCEPTIONS, log_config.relpath, True, True)
-
 
 def _init_single_log(formatter: Formatter, log_level: int, log_name: str, log_path: str, to_console: bool, to_file: bool):
     logger = logging.getLogger(log_name)
