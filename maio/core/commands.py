@@ -133,7 +133,7 @@ class ListBuilder:
         elif isinstance(limit, str):
             limit = parse_int(limit, per_page)
 
-        limit = min(max_per_page, max(1, limit, per_page))
+        limit = min(max_per_page, max(1, limit))
         self._pagination = ListPagination(limit, limit * (max(1, page) - 1))
         return self
 
