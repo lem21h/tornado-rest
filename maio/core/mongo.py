@@ -462,6 +462,18 @@ class MongoUtils(object):
         return date_filtering
 
     @staticmethod
+    def match_value_between(min_val: Union[int, float], max_val: Union[int, float]):
+        return {'$gte': min_val, '$lte': max_val}
+
+    @staticmethod
+    def match_less_than(val: Union[int, float], can_equal: bool = True):
+        return {'$lte' if can_equal else '$le': val}
+
+    @staticmethod
+    def match_greater_than(val: Union[int, float], can_equal: bool = True):
+        return {'$gte' if can_equal else '$ge': val}
+
+    @staticmethod
     def match_string(matching: str, options: Optional[str] = 'i', match_from_start=True) -> Dict[str, str]:
         res = {'$regex': f"^{matching}" if match_from_start else matching}
         if options:

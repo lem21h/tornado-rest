@@ -69,7 +69,7 @@ class ListBuilder:
 
         self._main_clazz: AbstractListCommand = clazz
 
-        self._filtering: Dict[str, Any] = None
+        self._filtering: Dict[str, Any] = {}
         self._pagination: ListPagination = None
         self._sorting: ListSort = None
         self._serialization: ListSerialization = None
