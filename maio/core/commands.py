@@ -44,7 +44,7 @@ class ListSort(NamedTuple):
     direction: str
 
     def get_tuple(self):
-        return [(self.field, 1 if self.direction == ListBuilder.DESCENDING else -1)]
+        return [(self.field, -1 if self.direction == ListBuilder.DESCENDING else 1)]
 
 
 class ListPagination(NamedTuple):
