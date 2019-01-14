@@ -264,8 +264,8 @@ class AbstractListCommand(object):
     async def execute_with_count(cls, builder: ListBuilder) -> Tuple[Union[List, Dict], int]:
         result = await cls.execute(builder)
         result_len = len(result)
-        if result_len > 0 and builder.pagination:
-            if builder.pagination.offset != 0 or result_len >= builder.pagination.limit:
+        if result_len > 0:
+            if builder.pagination and (builder.pagination.offset != 0 or result_len >= builder.pagination.limit):
                 return result, await cls.get_repo_clazz().count(builder.filtering)
             else:
                 return result, result_len
