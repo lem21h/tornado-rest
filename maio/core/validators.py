@@ -196,7 +196,7 @@ def val_jpg(contents):
     if not contents.endswith(_JPEG_TRAILER):
         return FunctionResult(RESULT_ERR, 'Invalid JPEG file')
 
-    if 0xE0 <= contents[4] <= 0xE8:
+    if 0xE0 <= contents[3] <= 0xE8:
         return FunctionResult(RESULT_OK, None)
     else:
         return FunctionResult(RESULT_ERR, 'Invalid JPEG file')
