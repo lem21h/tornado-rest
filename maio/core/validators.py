@@ -229,6 +229,7 @@ class _ImageValidator:
 
     _IMG_TYPES = {
         b'jpeg': JPEG,
+        b'jpg': JPEG,
         b'gif': GIF,
         b'png': PNG,
     }
