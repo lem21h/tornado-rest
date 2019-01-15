@@ -254,7 +254,8 @@ class _ImageValidator:
 
         image_type = img[0][11:]
         val = cls._IMG_VAL.get(image_type)
-        if cls._IMG_TYPES.get(image_type) & types == 0 or not val:
+        it = cls._IMG_TYPES.get(image_type)
+        if not it or it & types == 0 or not val:
             formats = []
             if types & cls.PNG:
                 formats.append('PNG')
