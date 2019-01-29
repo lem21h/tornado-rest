@@ -130,7 +130,8 @@ class RestHandler(RequestHandler):
 
     @classmethod
     def log(cls, level=logging.INFO, message=None, *args, **kwargs):
-        cls._LOG_INST.log(level, message, args, kwargs)
+
+        cls._LOG_INST.log(level, message, args, **kwargs)
 
     @property
     def param_page(self):
