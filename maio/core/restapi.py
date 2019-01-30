@@ -1,17 +1,18 @@
 # coding=utf-8
 import logging
-import os
 import time
 from collections import namedtuple
+from datetime import datetime
 from inspect import isclass
-from typing import Type
+from typing import Type, List, Dict
 
 from tornado import httputil
 from tornado.ioloop import IOLoop
 from tornado.routing import ReversibleRuleRouter
 from tornado.web import Application, RequestHandler
 
-from maio.core.configs import TornadoConfig
+from config import NeuroAppConfig
+from maio.core.configs import AppConfig
 from maio.core.di import DI, ApiService
 from maio.core.handlers import AclMixin, RestHandler
 from maio.core.log import LOG_TORNADO_GENERAL
@@ -107,11 +108,10 @@ def _get_real_permissions_from_handler(clazz: Type[AclMixin], root_permissions):
 
 class RestAPIApp(Application):
     _config = None
-    _API_VERSION = None
 
     __slots__ = ['_startDate', '_services', '_reverse_routing_map', '_acl_list']
 
-    def __init__(self, config: TornadoConfig, routing, base_routing):
+    def __init__(self, config: AppConfig, routing, base_routing):
 
         super().__init__(base_routing, config.web.host, None, **config.tornado.to_dict())
         RestAPIApp._config = config
@@ -119,13 +119,12 @@ class RestAPIApp(Application):
         from datetime import datetime
 
         self._startDate = datetime.utcnow()
-        self._loadApiVersion()
         self._services = []
         self._reverse_routing_map = {}
-        self._acl_list = {}
-        self._buildRouting(routing)
+        self._acl_list = []
+        self._build_routing(routing)
 
-    def _buildRouting(self, routing):
+    def _build_routing(self, routing):
         from tornado.routing import Rule, AnyMatches, PathMatches
 
         routes = [Rule(PathMatches(route), _RestApplicationRouter(self, subRoutes)) for route, subRoutes in routing.items()]
@@ -157,19 +156,15 @@ class RestAPIApp(Application):
         self._acl_list = tuple(set(temp_acl))
 
     @property
-    def start_date(self):
+    def start_date(self) -> datetime:
         return self._startDate
 
     @property
-    def config(self):
+    def config(self) -> NeuroAppConfig:
         return self._config
 
     @property
-    def api_version(self):
-        return self._API_VERSION
-
-    @property
-    def acl_list(self):
+    def acl_list(self) -> List[str]:
         return self._acl_list
 
     @classmethod
@@ -185,7 +180,7 @@ class RestAPIApp(Application):
     def _initLogging(cls):
         from maio.core.log import defineLogging
 
-        cls._config.logging.relpath = cls._config.baseRelativePathSafe(cls._config.logging.relpath)
+        cls._config.logging.relpath = cls._config.get_relative_path_safe(cls._config.logging.relpath)
         defineLogging(cls._config.logging)
 
     @classmethod
@@ -198,12 +193,6 @@ class RestAPIApp(Application):
         app = cls(cls._config, routing, base_routing)
         app.ui_modules = {}
         return app
-
-    def _loadApiVersion(self):
-        ver_file = os.path.join(self._config.basePath, 'version.api')
-        if os.path.isfile(ver_file):
-            with open(ver_file, 'rb') as inFile:
-                self._API_VERSION = inFile.read().strip()
 
     def registerAsyncService(self, clazz, config=None):
         self._registerService(clazz, config, True)
@@ -257,3 +246,29 @@ class RestAPIApp(Application):
         loop = IOLoop.current()
         self._initServices(loop)
         loop.start()
+
+
+def starter(env_map: Dict[str, Type[NeuroAppConfig]], default_path: str) -> NeuroAppConfig:
+    from os import environ, path
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="Application webserver")
+    parser.add_argument('-c', default='dev', dest='config', help='Server configuration file')
+    parser.add_argument('-t', default=None, dest='template_path', help='Templates path')
+    parser.add_argument('-b', default=None, dest='base_path', help='Base path')
+
+    cmd_args = parser.parse_args()
+
+    env = (environ.get('ENVIRONMENT') if environ.get('ENVIRONMENT') else cmd_args.config).lower()
+    base_path = cmd_args.base_path if cmd_args.base_path else default_path
+    template_path = cmd_args.template_path if cmd_args.template_path else path.join(base_path, 'src', 'templates')
+
+    config = env_map.get(env.lower(), env_map.get('default'))(base_path, template_path)
+    status = config.enrich_with_json_file()
+    if status > 0:
+        print(f'Config enriched with status {status}')
+
+    print(f'Base path = {config.BASE_PATH}')
+    print(f'Templates path = {config.TEMPLATE_PATH}')
+
+    return config

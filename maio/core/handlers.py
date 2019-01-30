@@ -133,6 +133,10 @@ class RestHandler(RequestHandler):
 
         cls._LOG_INST.log(level, message, args, **kwargs)
 
+    @classmethod
+    def get_rev_name(cls):
+        raise NotImplementedError()
+
     @property
     def param_page(self):
         return self.get_argument('page', None)

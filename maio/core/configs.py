@@ -1,12 +1,14 @@
 # coding=utf-8
+import json
 import logging
 import os
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Optional
 
+from maio.core.data import VO
 from maio.core.handlers import NotFoundRestHandler
 
 
-class _BaseConfig(object):
+class _BaseConfig(VO):
     __slots__ = ()
 
     def get(self, key: str) -> Any:
@@ -194,16 +196,21 @@ class LocaleConfig(_BaseConfig):
         self.default_timezone = 'GMT'
 
 
-class TornadoConfig(object):
-    __slots__ = ('_base_path', 'tornado', 'web', 'logging', 'cors', 'security', 'locale')
+class AppConfig(object):
+    BASE_PATH = None
+    TEMPLATE_PATH = None
 
-    @property
-    def env(self) -> str:
-        return self.__class__.__name__
+    __slots__ = ('tornado', 'web', 'logging', 'cors', 'security', 'locale', 'apiVersion')
 
-    def __init__(self, base_path) -> None:
+    def __init__(self, base_path: str, template_path: Optional[str] = None, api_version: Optional[str] = None) -> None:
         super().__init__()
-        self._base_path = base_path
+
+        self.set_base_path(base_path)
+        if template_path:
+            self.set_template_path(template_path)
+
+        self.apiVersion = api_version
+        self._load_version()
         self.tornado = TornadoSettings()
         self.web = WebSettings()
         self.logging = LoggerConfig()
@@ -211,15 +218,62 @@ class TornadoConfig(object):
         self.security = SecurityConfig()
         self.locale = LocaleConfig()
 
+    @property
+    def env(self) -> str:
+        return self.__class__.__name__
+
+    @classmethod
+    def set_template_path(cls, new_path):
+        cls.TEMPLATE_PATH = os.path.abspath(new_path)
+        if not os.path.exists(cls.TEMPLATE_PATH):
+            raise ValueError(f'Cannot find TEMPLATE PATH {new_path}')
+
+    @classmethod
+    def set_base_path(cls, new_path):
+        cls.BASE_PATH = os.path.abspath(new_path)
+        cls.TEMPLATE_PATH = os.path.join(cls.BASE_PATH, 'src', 'templates')
+        if not os.path.exists(cls.BASE_PATH):
+            raise ValueError(f'Cannot find BASE PATH {new_path}')
+
+    def on_update(self, data: Dict[str, Any]) -> None:
+        if data.get('cors') and data['cors'].get('allowed_origin') and isinstance(data['cors']['allowed_origin'], list):
+            self.cors.allowed_origin = data['cors']['allowed_origin']
+        if data.get('web') and data['web'].get('port'):
+            self.web.port = data['web']['port']
+
+    def enrich_with_json_file(self, config_path: Optional[str] = None) -> int:
+        if not config_path:
+            config_path = os.path.join(self.BASE_PATH, 'config.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'rb') as fp:
+                    data = json.load(fp)
+                if data and isinstance(data, dict):
+                    self.on_update(data)
+                    return 1
+                else:
+                    return -1
+            except Exception as ex:
+                print(f'While updating config exception has occurred {ex}')
+                return 2
+        else:
+            return -1
+
     def to_dict(self):
         return {k: self.__getattribute__(k).to_dict() for k in self.__slots__[1:]}
 
     @property
-    def basePath(self) -> str:
-        return self._base_path
+    def base_path(self) -> str:
+        return self.BASE_PATH
 
-    def baseRelativePath(self, rel_path: str) -> str:
-        return os.path.join(self._base_path, rel_path)
+    def get_relative_path(self, rel_path: str) -> str:
+        return os.path.join(self.BASE_PATH, rel_path)
 
-    def baseRelativePathSafe(self, rel_path: str) -> str:
-        return rel_path if rel_path.startswith('/') else os.path.join(self._base_path, rel_path)
+    def get_relative_path_safe(self, rel_path: str) -> str:
+        return rel_path if rel_path.startswith('/') else os.path.join(self.BASE_PATH, rel_path)
+
+    def _load_version(self):
+        ver_file = os.path.join(self.BASE_PATH, 'version.api')
+        if os.path.isfile(ver_file):
+            with open(ver_file, 'rb') as inFile:
+                self.apiVersion = inFile.read().strip()

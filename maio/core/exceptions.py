@@ -28,6 +28,9 @@ class BasicErrorCodes(object):
     EMAIL_REGISTERED = ErrorEntry(4011, 'Email address already taken')
 
     STORE_TO_DATABASE = ErrorEntry(4012, 'Error storing result in database')
+    PAYLOAD_TOO_BIG = ErrorEntry(4050, 'Payload size is too big')
+
+    SERVICE_UNAVAILABLE = ErrorEntry(9999, 'Service unavailable')
 
 
 class HTTPBaseError(tornado.web.HTTPError):

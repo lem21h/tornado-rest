@@ -1,6 +1,6 @@
 # coding=utf-8
 from io import BytesIO, StringIO
-from typing import Any, AsyncIterable, Awaitable, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, AsyncIterable, Awaitable, Dict, List, Optional, Tuple, Type, TypeVar, Union, ClassVar
 
 from bson import ObjectId
 from gridfs import GridFS, GridFSBucket
@@ -12,7 +12,7 @@ from pymongo.cursor import Cursor
 from pymongo.database import Database
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from maio.core.data import Document
+from maio.core.data import Document, VO
 from maio.core.di import DI, ApiService
 
 T = TypeVar('T')
@@ -64,7 +64,7 @@ class DocumentMongoMapper(AbstractMapper):
         return res
 
     @classmethod
-    def unserialize(cls, data: Dict[str, Any], clazz: Type[Document]) -> Document:
+    def unserialize(cls, data: Dict[str, Any], clazz: Type[T]) -> T:
         obj = clazz.from_dict(data)
         if cls.DB_KEY in data:
             obj.uuid = data[cls.DB_KEY]
@@ -76,7 +76,7 @@ class DocumentMongoMapper(AbstractMapper):
                 self.__setattr__(key, changes[key])
 
 
-class MongoConfig:
+class MongoConfig(VO):
     __slots__ = ('uri', 'params', 'database')
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -84,16 +84,7 @@ class MongoConfig:
         self.params = None
         self.database = None
         if config:
-            self.enrich(config)
-
-    def enrich(self, config: Dict[str, Any]):
-        self.uri = config.get('uri', 'mongodb://localhost:27017')
-        self.params = config.get('params', {})
-        self.database = config.get('database', None)
-        if not self.database:
-            raise ValueError('Missing database setting')
-
-        return self
+            self.from_dict(config)
 
 
 class AbstractMongoConnection(ApiService):
@@ -125,57 +116,60 @@ class AbstractMongoConnection(ApiService):
     def verify_bucket(self, bucket):
         raise NotImplementedError()
 
+    @classmethod
+    def find_one(cls, clazz: ClassVar, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None, projection: Optional[Dict[str, bool]] = None) \
+            -> Optional[Any]:
+        raise NotImplementedError()
 
-class MongoAsyncConnection(AbstractMongoConnection):
-    __slots__ = ('_db_client', '_file_client', '_config', '_io_loop')
-
-    def __init__(self, config: MongoConfig, io_loop=None) -> None:
-        super().__init__(config)
-        self._io_loop = io_loop
-
-    def getClient(self, refresh: bool = False) -> MotorClient:
-        if not self._db_client or refresh:
-            if self._db_client:
-                self._db_client.close()
-            self._db_client = MotorClient(self._config.uri, uuidrepresentation='standard', io_loop=self._io_loop)
-        return self._db_client
-
-    def getDatabase(self) -> MotorDatabase:
-        return self.getClient()[self._config.database]
-
-    def getFileBucket(self, bucket_name: str = 'fs') -> MotorGridFSBucket:
-        return MotorGridFSBucket(self.getDatabase(), collection=bucket_name)
-
-    def getGridFs(self, collection: str = 'fs') -> MotorGridFSBucket:
-        if not self._file_client:
-            self._file_client = MotorGridFSBucket(self.getDatabase(), collection)
-
-    def verify_bucket(self, bucket: MotorGridFSBucket) -> bool:
-        return bucket.get_io_loop() == self._io_loop
+    @classmethod
+    def find(cls, clazz: ClassVar, cursor: Cursor) -> Optional[Any]:
+        raise NotImplementedError()
 
 
-class MongoSyncConnection(AbstractMongoConnection):
-    def getClient(self, refresh: bool = False) -> MongoClient:
-        if not self._db_client or refresh:
-            if self._db_client:
-                self._file_client = None
-                self._db_client.close()
-            self._db_client = MongoClient(self._config.uri, uuidrepresentation='standard')
-        return self._db_client
+class MongoUtils(object):
 
-    def getDatabase(self) -> Database:
-        return self.getClient()[self._config.database]
+    @staticmethod
+    def in_match(value_list: List[Any]) -> Dict[str, List]:
+        return {'$in': value_list}
 
-    def getFileBucket(self, bucket_name: str = 'fs') -> GridFSBucket:
-        return GridFSBucket(self.getDatabase(), bucket_name=bucket_name)
+    @staticmethod
+    def match_date_range(data: Dict[str, Any], field_from: str = None, field_to: str = None) -> Dict[str, Any]:
+        date_filtering = {}
+        if field_from and isinstance(data.get(field_from), int):
+            date_filtering['$gte'] = data[field_from]
+        if field_to and isinstance(data.get(field_to), int):
+            date_filtering['$lte'] = data[field_to]
+        return date_filtering
 
-    def getGridFs(self, collection: str = 'fs', refresh: bool = False) -> GridFS:
-        if not self._file_client or refresh:
-            self._file_client = GridFS(self.getDatabase(), collection)
-        return self._file_client
+    @staticmethod
+    def match_value_between(min_val: Union[int, float], max_val: Union[int, float]):
+        return {'$gte': min_val, '$lte': max_val}
 
-    def verify_bucket(self, bucket: GridFSBucket) -> bool:
-        return True
+    @staticmethod
+    def match_less_than(val: Union[int, float], can_equal: bool = True) -> Dict[str, Union[int, float]]:
+        return {'$lte' if can_equal else '$le': val}
+
+    @staticmethod
+    def match_greater_than(val: Union[int, float], can_equal: bool = True) -> Dict[str, Union[int, float]]:
+        return {'$gte' if can_equal else '$ge': val}
+
+    @classmethod
+    def match(cls, val: Any) -> Dict[str, Any]:
+        return {'$eq': val}
+
+    @staticmethod
+    def match_string(matching: str, options: Optional[str] = 'i', match_from_start=True) -> Dict[str, str]:
+        res = {'$regex': f"^{matching}" if match_from_start else matching}
+        if options:
+            res['$options'] = options
+        return res
+
+    @classmethod
+    def drop_collections(cls, connection: AbstractMongoConnection, collections: Union[List, Tuple] = None):
+        db = connection.getDatabase()
+        col_list = collections if collections and any(collections) else db.list_collection_names()
+        for collection in col_list:
+            db[collection].drop()
 
 
 class MongoFileStorage(object):
@@ -216,7 +210,7 @@ class MongoFileStorage(object):
         return cls.bucket().delete(file_id)
 
 
-class _AbstractMongoRepository(object):
+class MongoRepository:
     __collection__: str = None
     __serialization__: Type[Document] = None
     __mapper__: AbstractMapper = DocumentMongoMapper
@@ -270,15 +264,23 @@ class _AbstractMongoRepository(object):
     # find methods
 
     @classmethod
-    def findOne(cls, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None,
-                projection: Optional[Dict[str, bool]] = None) -> Optional[Union[Awaitable[Dict[str, Any]], Dict[str, Any]]]:
-        raise NotImplementedError()
+    def findOne(cls, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None, projection: Optional[Dict[str, bool]] = None) \
+            -> Optional[Union[Awaitable[Dict[str, Any]], Document]]:
+        return cls.connection().find_one(cls, filtering, sort=sort, projection=projection)
 
     @classmethod
-    def find(cls, filtering=None, sort: Optional[List[Tuple[str, int]]] = None,
-             limit: Optional[int] = None, skip: Optional[int] = None, collation: str = 'pl',
-             projection: Optional[Dict[str, bool]] = None) -> Cursor:
-        raise NotImplementedError()
+    def find(cls, filtering=None, sort: Optional[List[Tuple[str, int]]] = None, limit: Optional[int] = None, skip: Optional[int] = None,
+             collation: Optional[str] = None, projection: Optional[Dict[str, bool]] = None) -> Cursor:
+        cursor = cls.getCollection().find(filtering, projection=projection)
+        if limit:
+            cursor.limit(limit)
+        if skip:
+            cursor.skip(skip)
+        if collation:
+            cursor.collation({'locale': collation, 'caseLevel': False})
+        if sort:
+            cursor.sort(sort)
+        return cls.connection().find(cls, cursor)
 
     @classmethod
     def findById(cls, key_id: Any, projection: Optional[Dict[str, bool]] = None) -> Optional[Union[Awaitable[Dict[str, Any]], Dict[str, Any]]]:
@@ -395,97 +397,77 @@ class _AbstractMongoRepository(object):
         return cls.getCollection().delete_many({})
 
 
-class MongoSyncRepository(_AbstractMongoRepository):
-    @classmethod
-    def findOne(cls, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None,
-                projection: Optional[Dict[str, bool]] = None) -> Optional[Document]:
-        result = cls.getCollection().find_one(filtering, sort=sort, projection=projection)
-        if result:
-            return cls.unserialize(result)
+class MongoAsyncConnection(AbstractMongoConnection):
+    __slots__ = ('_db_client', '_file_client', '_config', '_io_loop')
+
+    def __init__(self, config: MongoConfig, io_loop=None) -> None:
+        super().__init__(config)
+        self._io_loop = io_loop
+
+    def getClient(self, refresh: bool = False) -> MotorClient:
+        if not self._db_client or refresh:
+            if self._db_client:
+                self._db_client.close()
+            self._db_client = MotorClient(self._config.uri, uuidrepresentation='standard', io_loop=self._io_loop)
+        return self._db_client
+
+    def getDatabase(self) -> MotorDatabase:
+        return self.getClient()[self._config.database]
+
+    def getFileBucket(self, bucket_name: str = 'fs') -> MotorGridFSBucket:
+        return MotorGridFSBucket(self.getDatabase(), collection=bucket_name)
+
+    def getGridFs(self, collection: str = 'fs') -> MotorGridFSBucket:
+        if not self._file_client:
+            self._file_client = MotorGridFSBucket(self.getDatabase(), collection)
+
+    def verify_bucket(self, bucket: MotorGridFSBucket) -> bool:
+        return bucket.get_io_loop() == self._io_loop
 
     @classmethod
-    def find(cls, filtering: Dict[str, Any] = None, sort: Optional[List[Tuple[str, int]]] = None,
-             limit: int = 0, skip: int = 0, collation: str = 'pl', projection: Optional[Dict[str, bool]] = None) -> Union[Document, Dict[str, Any]]:
-        cursor = cls.getCollection().find(filtering, projection=projection)
-        if limit:
-            cursor.limit(limit)
-        if skip:
-            cursor.skip(skip)
-        if collation:
-            cursor.collation({'locale': collation, 'caseLevel': False})
-        if sort:
-            cursor.sort(sort)
-
-        if cls.__serialization__:
-            for row in cursor:
-                yield cls.unserialize(row)
-        else:
-            for row in cursor:
-                yield row
-
-
-class MongoAsyncRepository(_AbstractMongoRepository):
+    def find_one(cls, clazz: ClassVar, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None, projection: Optional[Dict[str, bool]] = None) \
+            -> Awaitable[Dict[str, Any]]:
+        return clazz.getCollection().find_one(filtering, projection=projection, sort=sort)
 
     @classmethod
-    def findOne(cls, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None,
-                projection: Optional[Dict[str, bool]] = None) -> Awaitable[Dict[str, Any]]:
-        return cls.getCollection().find_one(filtering, projection=projection, sort=sort)
-
-    @classmethod
-    def find(cls, filtering: Dict[str, Any] = None, sort: Optional[List[Tuple[str, int]]] = None,
-             limit: int = 0, skip: int = 0, collation: str = 'pl', projection: Optional[Dict[str, bool]] = None) -> AsyncIterable[Dict[str, Any]]:
-        cursor = cls.getCollection().find(filtering, projection=projection)
-        if limit:
-            cursor.limit(limit)
-        if skip:
-            cursor.skip(skip)
-
-        if sort:
-            cursor.sort(sort)
-
+    def find(cls, clazz: ClassVar, cursor: Cursor) -> AsyncIterable[Dict[str, Any]]:
         return cursor
 
 
-class MongoUtils(object):
+class MongoSyncConnection(AbstractMongoConnection):
+    def getClient(self, refresh: bool = False) -> MongoClient:
+        if not self._db_client or refresh:
+            if self._db_client:
+                self._file_client = None
+                self._db_client.close()
+            self._db_client = MongoClient(self._config.uri, uuidrepresentation='standard')
+        return self._db_client
 
-    @staticmethod
-    def in_match(value_list: List[Any]) -> Dict[str, List]:
-        return _AbstractMongoRepository._in(value_list)
+    def getDatabase(self) -> Database:
+        return self.getClient()[self._config.database]
 
-    @staticmethod
-    def match_date_range(data: Dict[str, Any], field_from: str = None, field_to: str = None) -> Dict[str, Any]:
-        date_filtering = {}
-        if field_from and isinstance(data.get(field_from), int):
-            date_filtering['$gte'] = data[field_from]
-        if field_to and isinstance(data.get(field_to), int):
-            date_filtering['$lte'] = data[field_to]
-        return date_filtering
+    def getFileBucket(self, bucket_name: str = 'fs') -> GridFSBucket:
+        return GridFSBucket(self.getDatabase(), bucket_name=bucket_name)
 
-    @staticmethod
-    def match_value_between(min_val: Union[int, float], max_val: Union[int, float]):
-        return {'$gte': min_val, '$lte': max_val}
+    def getGridFs(self, collection: str = 'fs', refresh: bool = False) -> GridFS:
+        if not self._file_client or refresh:
+            self._file_client = GridFS(self.getDatabase(), collection)
+        return self._file_client
 
-    @staticmethod
-    def match_less_than(val: Union[int, float], can_equal: bool = True):
-        return {'$lte' if can_equal else '$le': val}
+    def verify_bucket(self, bucket: GridFSBucket) -> bool:
+        return True
 
-    @staticmethod
-    def match_greater_than(val: Union[int, float], can_equal: bool = True):
-        return {'$gte' if can_equal else '$ge': val}
+    @classmethod
+    def find_one(cls, clazz: MongoRepository, filtering: Dict[str, Any], sort: Optional[List[Tuple[str, int]]] = None,
+                 projection: Optional[Dict[str, bool]] = None) -> Optional[Document]:
+        result = clazz.getCollection().find_one(filtering, sort=sort, projection=projection)
+        return clazz.unserialize(result) if result else None
 
-    @staticmethod
-    def match_string(matching: str, options: Optional[str] = 'i', match_from_start=True) -> Dict[str, str]:
-        res = {'$regex': f"^{matching}" if match_from_start else matching}
-        if options:
-            res['$options'] = options
-        return res
-
-    def __init__(self, connection: AbstractMongoConnection) -> None:
-        super().__init__()
-        self._connection = connection
-
-    def drop_collections(self, collections: Union[List, Tuple] = None):
-        db = self._connection.getDatabase()
-        col_list = collections if collections and any(collections) else db.list_collection_names()
-        for collection in col_list:
-            db[collection].drop()
+    @classmethod
+    def find(cls, clazz: MongoRepository, cursor: Cursor):
+        if clazz.getSerializationClass():
+            for row in cursor:
+                yield clazz.unserialize(row)
+        else:
+            for row in cursor:
+                yield row
