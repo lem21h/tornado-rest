@@ -1,9 +1,9 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
-class ApiService(object):
+class ApiService:
 
-    def __init__(self, config: Dict = None) -> None:
+    def __init__(self, config: Optional[Dict] = None) -> None:
         super().__init__()
 
     @classmethod

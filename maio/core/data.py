@@ -42,13 +42,14 @@ class VO:
 
         return new_obj
 
+    @classmethod
+    def get_fields(cls):
+        return cls.__slots__
+
     def update_object(self, changes: Dict):
         for key in self.__slots__:
             if key in changes:
                 self.__setattr__(key, changes[key])
-
-    def keys(self):
-        return self.__slots__
 
     def __repr__(self) -> str:
         return str(self.to_dict())

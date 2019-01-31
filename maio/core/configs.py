@@ -12,15 +12,15 @@ class _BaseConfig(VO):
     __slots__ = ()
 
     def get(self, key: str) -> Any:
-        if key in self.__slots__:
-            return self.__getattribute__(key)
+        if key in self.get_fields():
+            return getattr(self, key)
         else:
-            raise AttributeError('No key [%s] in object' % key)
+            raise AttributeError(f'No key [{key}] in object')
 
     def to_dict(self) -> Dict[str, Any]:
         out = {}
-        for key in self.__slots__:
-            val = self.__getattribute__(key)
+        for key in self.get_fields():
+            val = getattr(self, key)
             if val is not None:
                 out[key] = val
         return out
@@ -74,7 +74,7 @@ class TornadoAuthSettings(_BaseConfig):
         self.twitter_consumer_key: str = None
         self.twitter_consumer_secret: str = None
         self.friendfeed_consumer_key: str = None
-        self.friendfeed_consuler_secret: str = None
+        self.friendfeed_consumer_secret: str = None
         self.google_consumer_key: str = None
         self.google_consumer_secret: str = None
         self.facebook_api_key: str = None
@@ -196,7 +196,7 @@ class LocaleConfig(_BaseConfig):
         self.default_timezone = 'GMT'
 
 
-class AppConfig(object):
+class AppConfig:
     BASE_PATH = None
     TEMPLATE_PATH = None
 

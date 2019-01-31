@@ -70,11 +70,6 @@ class DocumentMongoMapper(AbstractMapper):
             obj.uuid = data[cls.DB_KEY]
         return obj
 
-    def update_object(self, changes: dict):
-        for key in self.__slots__:
-            if key in changes:
-                self.__setattr__(key, changes[key])
-
 
 class MongoConfig(VO):
     __slots__ = ('uri', 'params', 'database')
@@ -129,7 +124,7 @@ class AbstractMongoConnection(ApiService):
 class MongoUtils(object):
 
     @staticmethod
-    def in_match(value_list: List[Any]) -> Dict[str, List]:
+    def match_in(value_list: List[Any]) -> Dict[str, List]:
         return {'$in': value_list}
 
     @staticmethod
@@ -248,10 +243,6 @@ class MongoRepository:
         return cls.__mapper__.DB_KEY
 
     @staticmethod
-    def _in(data: List[Any]) -> Dict[str, List[Any]]:
-        return {'$in': data}
-
-    @staticmethod
     def _set(data: Dict) -> Dict[str, Dict]:
         return {'$set': data}
 
@@ -293,7 +284,7 @@ class MongoRepository:
             filters = {}
         if key_ids and any(key_ids):
             assert isinstance(key_ids, (list, tuple))
-            filters[cls.getIdName()] = cls._in(key_ids)
+            filters[cls.getIdName()] = MongoUtils.match_in(key_ids)
 
         return cls.find(filters, sort, limit, offset)
 
