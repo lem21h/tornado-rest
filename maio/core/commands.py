@@ -4,7 +4,7 @@ from typing import Any, Optional, Union, NamedTuple, Type, Callable, Dict, Await
 from uuid import UUID
 
 from maio.core.helpers import parse_bool, parse_date_to_unix_ts, parse_uuid, parse_int, FunctionResult, parse_float
-from maio.core.mongo import MongoAsyncRepository
+from maio.core.mongo import MongoRepository
 
 
 class AbstractCommand(object):
@@ -195,7 +195,7 @@ class ListBuilder:
 
 class AbstractListCommand(object):
     @classmethod
-    def get_repo_clazz(cls) -> Type[MongoAsyncRepository]:
+    def get_repo_clazz(cls) -> Type[MongoRepository]:
         raise NotImplementedError()
 
     @classmethod
