@@ -83,7 +83,7 @@ class BaseRestTestCase(AsyncHTTPTestCase):
         super().setUp()
         self._app._initServices(IOLoop.current())
         # clean up database
-        MongoUtils(MongoSyncConnection(self._config.mongo)).drop_collections()
+        MongoUtils().drop_collections(MongoSyncConnection(self._config.mongo))
 
     def run_as_sync(self, fn, io_loop=None, *args, **kwargs):
         io_loop = self.io_loop if io_loop is None else io_loop

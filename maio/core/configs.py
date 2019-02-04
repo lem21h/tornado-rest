@@ -64,7 +64,7 @@ class TornadoSecuritySettings(_BaseConfig):
 class TornadoAuthSettings(_BaseConfig):
     __slots__ = (
         'twitter_consumer_key', 'twitter_consumer_secret',
-        'friendfeed_consumer_key', 'friendfeed_consuler_secret',
+        'friendfeed_consumer_key', 'friendfeed_consumer_secret',
         'google_consumer_key', 'google_consumer_secret', 'google_oauth',
         'facebook_api_key', 'facebook_api_secret'
     )
