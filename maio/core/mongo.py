@@ -59,8 +59,9 @@ class DocumentMongoMapper(AbstractMapper):
     @classmethod
     def serialize(cls, data: Document, fields: Optional[Tuple] = None) -> Dict[str, Any]:
         res = data.to_dict(fields)
-        res[cls.DB_KEY] = data.uuid
-        del res[cls.OBJ_KEY]
+        if cls.OBJ_KEY in data:
+            res[cls.DB_KEY] = data.uuid
+            del res[cls.OBJ_KEY]
         return res
 
     @classmethod

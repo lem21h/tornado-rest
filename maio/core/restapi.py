@@ -11,7 +11,6 @@ from tornado.ioloop import IOLoop
 from tornado.routing import ReversibleRuleRouter
 from tornado.web import Application, RequestHandler
 
-from config import NeuroAppConfig
 from maio.core.configs import AppConfig
 from maio.core.di import DI, ApiService
 from maio.core.handlers import AclMixin, RestHandler
@@ -160,7 +159,7 @@ class RestAPIApp(Application):
         return self._startDate
 
     @property
-    def config(self) -> NeuroAppConfig:
+    def config(self) -> AppConfig:
         return self._config
 
     @property
@@ -248,7 +247,7 @@ class RestAPIApp(Application):
         loop.start()
 
 
-def starter(env_map: Dict[str, Type[NeuroAppConfig]], default_path: str) -> NeuroAppConfig:
+def starter(env_map: Dict[str, Type[AppConfig]], default_path: str) -> AppConfig:
     from os import environ, path
     from argparse import ArgumentParser
 

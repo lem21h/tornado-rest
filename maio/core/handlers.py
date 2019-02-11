@@ -135,7 +135,7 @@ class RestHandler(RequestHandler):
 
     @classmethod
     def get_rev_name(cls):
-        raise NotImplementedError()
+        raise cls.__name__
 
     @property
     def param_page(self):
@@ -271,7 +271,7 @@ class RestHandler(RequestHandler):
 class ReqUtils:
     @staticmethod
     def run_in_background(fn, *args, **kwargs):
-        IOLoop.current().spawn_callback(fn, args, kwargs)
+        IOLoop.current().spawn_callback(fn, args, **kwargs)
 
     @staticmethod
     def processJsonBody(content):
