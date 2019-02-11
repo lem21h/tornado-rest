@@ -118,10 +118,7 @@ class ListBuilder:
         if value is None:
             return
 
-        or_dict = {}
-        for field in fields:
-            or_dict[field] = value
-        self._filtering['$or'] = [or_dict]
+        self._filtering['$or'] = [{field: value} for field in fields]
 
     def with_pagination(self, page: Union[int, str], limit: Union[int, str], per_page: int = 50, max_per_page: int = 100):
         if not page:
