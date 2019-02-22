@@ -3,13 +3,14 @@ from datetime import datetime
 from typing import Any, Optional, Union, NamedTuple, Type, Callable, Dict, Awaitable, List, Tuple
 from uuid import UUID
 
-from maio.core.helpers import parse_bool, parse_date_to_unix_ts, parse_uuid, parse_int, FunctionResult, parse_float
+from maio.core.data import Result
+from maio.core.helpers import parse_bool, parse_date_to_unix_ts, parse_uuid, parse_int, parse_float
 from maio.core.mongo import MongoRepository
 
 
 class AbstractCommand(object):
     @classmethod
-    async def execute(cls, *args, **kwargs) -> FunctionResult:
+    async def execute(cls, *args, **kwargs) -> Result:
         raise NotImplementedError()
 
 
@@ -230,19 +231,27 @@ class AbstractListCommand(object):
         return serializer
 
     @classmethod
-    async def execute(cls, builder: ListBuilder) -> Union[List, Dict]:
+    def get_cursor(cls, filtering: Optional[Dict[str, Any]], sort: Optional[ListSort], limit: Optional[int], offset: Optional[int],
+                   projection: Optional[Dict[str, bool]]):
         params = {}
-        if builder.filtering:
-            params['filtering'] = cls.post_process_filtering(builder.filtering)
-        if builder.sorting:
-            params['sort'] = builder.sorting.get_tuple()
-        if builder.pagination:
-            params['limit'] = builder.pagination.limit
-            params['skip'] = builder.pagination.offset
-        if builder.projection:
-            params['projection'] = builder.projection
+        if filtering:
+            params['filtering'] = cls.post_process_filtering(filtering)
+        if sort:
+            params['sort'] = sort.get_tuple()
+        if limit and offset:
+            params['limit'] = limit
+            params['skip'] = offset
+        if projection:
+            params['projection'] = projection
+        return cls.get_repo_clazz().find(**params)
 
-        cursor = cls.get_repo_clazz().find(**params)
+    @classmethod
+    async def execute(cls, builder: ListBuilder) -> Union[List, Dict]:
+
+        if builder.pagination:
+            cursor = cls.get_cursor(builder.filtering, builder.sorting, builder.pagination.limit, builder.pagination.offset, builder.projection)
+        else:
+            cursor = cls.get_cursor(builder.filtering, builder.sorting, None, None, builder.projection)
 
         serializer = cls._get_serializer(builder.fn_serialize, builder.row_as_dict)
         if builder.return_as_map:

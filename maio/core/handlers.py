@@ -6,7 +6,8 @@ import time
 import traceback
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Optional
+from typing import Optional, Dict, Any
+from uuid import UUID
 
 import tornado
 import tornado.httputil
@@ -210,7 +211,13 @@ class RestHandler(RequestHandler):
             self.set_header('Access-Control-Allow-Origin', cors)
 
     def options(self, *args, **kwargs):
-        self.set_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, PUT')
+        methods = set()
+        clazz = self.__class__
+        for method in ('post', 'put', 'get', 'patch', 'delete'):
+            if getattr(clazz, method) != getattr(RequestHandler, method):
+                methods.add(method.upper())
+
+        self.set_header('Access-Control-Allow-Methods', ', '.join(methods))
         self.set_status(HTTPStatus.NO_CONTENT.value)
         self.finish()
 
@@ -274,7 +281,7 @@ class ReqUtils:
         IOLoop.current().spawn_callback(fn, args, **kwargs)
 
     @staticmethod
-    def processJsonBody(content):
+    def processJsonBody(content) -> Dict:
         if hasattr(content, '__len__') and len(content) > 0:
             try:
                 return json.loads(content.decode(encoding='UTF-8') if isinstance(content, bytes) else content)
@@ -284,14 +291,14 @@ class ReqUtils:
             return {}
 
     @staticmethod
-    def validate(data, validators):
+    def validate(data, validators) -> Dict[str, Any]:
         val_res = SimpleValidator.validate(data, validators)
         if val_res.has_errors():
             raise HTTP400BadRequestError(BasicErrorCodes.VALIDATION_ERROR, details=val_res.errors)
         return val_res.result
 
     @staticmethod
-    def tryParseUuid(uuid_str: str, raise_error=True):
+    def tryParseUuid(uuid_str: str, raise_error=True) -> UUID:
         uuid_obj = parse_uuid(uuid_str)
         if raise_error and not uuid_obj:
             raise HTTP400BadRequestError(BasicErrorCodes.BAD_UUID)
@@ -346,17 +353,8 @@ class ReqUtils:
 
 
 class NotFoundRestHandler(RestHandler):
+    async def prepare(self):
+        raise HTTP404NotFoundError(BasicErrorCodes.GENERAL_NOT_FOUND)
+
     def check_xsrf_cookie(self):
         pass
-
-    def get(self, path=None, **kwargs):
-        raise HTTP404NotFoundError(BasicErrorCodes.GENERAL_NOT_FOUND)
-
-    def post(self, path=None, **kwargs):
-        raise HTTP404NotFoundError(BasicErrorCodes.GENERAL_NOT_FOUND)
-
-    def put(self, path=None, **kwargs):
-        raise HTTP404NotFoundError(BasicErrorCodes.GENERAL_NOT_FOUND)
-
-    def delete(self, path=None, **kwargs):
-        raise HTTP404NotFoundError(BasicErrorCodes.GENERAL_NOT_FOUND)

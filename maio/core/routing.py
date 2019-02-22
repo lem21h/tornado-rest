@@ -1,4 +1,6 @@
 # coding=utf-8
+from typing import Optional, Dict, Type
+
 from tornado.routing import Rule, PathMatches
 
 from maio.core.handlers import RestHandler
@@ -13,7 +15,7 @@ class URLSpecV2(Rule):
        backwards compatibility.
     """
 
-    def __init__(self, pattern, handler, parameters=None):
+    def __init__(self, pattern: str, handler: Type[RestHandler], parameters: Optional[Dict] = None):
         """Parameters:
 
         * ``pattern``: Regular expression to be matched. Any capturing
@@ -38,7 +40,7 @@ class URLSpecV2(Rule):
         self.handler_class = self.target
         self.kwargs = parameters
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.regex.pattern}, {self.handler_class}, kwargs={self.kwargs:r}, name={self.name})'
 
 

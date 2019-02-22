@@ -9,7 +9,7 @@ import unicodedata
 from calendar import timegm
 from datetime import datetime, timedelta
 from random import randint
-from typing import Optional, NamedTuple, Any, Union
+from typing import Optional, Union
 from uuid import uuid4, UUID
 
 from bson import ObjectId
@@ -203,12 +203,3 @@ def flatten_dict(dd, separator='_', prefix=''):
             for kk, vv in dd.items()
             for k, v in flatten_dict(vv, separator, kk).items()
             } if isinstance(dd, dict) else {prefix: dd}
-
-
-class FunctionResult(NamedTuple):
-    status: int
-    result: Any
-
-
-RESULT_OK = 1
-RESULT_ERR = 0

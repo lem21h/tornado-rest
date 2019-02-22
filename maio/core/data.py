@@ -1,7 +1,7 @@
 # coding=utf-8
 import json
 from datetime import date
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, TypeVar, Generic
 from uuid import UUID, uuid4
 
 from bson import ObjectId
@@ -20,7 +20,7 @@ class VO:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any] = None):
-        obj = cls.create()
+        obj = cls()
 
         if not data or not isinstance(data, dict):
             return obj
@@ -108,3 +108,33 @@ class CustomJsonEncoder(json.JSONEncoder):
         elif isinstance(obj, VO):
             return obj.to_dict()
         return json.JSONEncoder.default(self, obj)
+
+
+T = TypeVar('T')
+
+
+class Result(Generic[T]):
+    __slots__ = ('_result',)
+
+    def __init__(self, result: T):
+        self._result: T = result
+
+    @property
+    def ok(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    def result(self) -> T:
+        return self._result
+
+
+class Failure(Result, Generic[T]):
+    @property
+    def ok(self) -> bool:
+        return False
+
+
+class Success(Result, Generic[T]):
+    @property
+    def ok(self) -> bool:
+        return True

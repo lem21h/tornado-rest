@@ -1,14 +1,14 @@
 # coding=utf-8
 import unittest
 
-from maio.core.validators import (SimpleValidator, Val, _ERR_STR_NOT_ENDS_WITH, _ERR_STR_NOT_STARTS_WITH, _ERR_STR_TOO_SHORT, _ERR_STR_TOO_LONG)
+from maio.core.validators import (SimpleValidator, Val, _ERR_STR_NOT_ENDS_WITH, _ERR_STR_NOT_STARTS_WITH, _ERR_STR_TOO_SHORT, _ERR_STR_TOO_LONG, FieldVal)
 
 
 class ValidatorMethods(unittest.TestCase):
 
     def test_required(self):
         validators = {
-            'a': (Val.required(),),
+            FieldVal.required('a'): [],
             'b': []
         }
 
@@ -23,8 +23,22 @@ class ValidatorMethods(unittest.TestCase):
             'c': 3
         }
 
+        data3 = {
+            'a': 0,
+            'b': 2,
+            'c': 3
+        }
+
+        data4 = {
+            'a': '',
+            'b': 2,
+            'c': 3
+        }
+
         res1 = SimpleValidator.validate(data1, validators)
         res2 = SimpleValidator.validate(data2, validators)
+        res3 = SimpleValidator.validate(data3, validators)
+        res4 = SimpleValidator.validate(data4, validators)
 
         self.assertFalse(res1.has_errors())
         self.assertIn('a', res1.result)
@@ -34,9 +48,12 @@ class ValidatorMethods(unittest.TestCase):
         self.assertTrue(res2.has_errors())
         self.assertIn('a', res2.errors)
 
+        self.assertFalse(res3.has_errors())
+        self.assertFalse(res4.has_errors())
+
     def test_string(self):
         validators = {
-            'a': (Val.required(), Val.string(min_len=3, max_len=6, ends_with='a', starts_with='a'))
+            FieldVal.required('a'): (Val.required(), Val.string(min_len=3, max_len=6, ends_with='a', starts_with='a')),
         }
 
         data_ok = {'a': 'a1aa'}
