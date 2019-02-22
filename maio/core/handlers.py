@@ -136,7 +136,7 @@ class RestHandler(RequestHandler):
 
     @classmethod
     def get_rev_name(cls):
-        raise cls.__name__
+        return cls.__name__
 
     @property
     def param_page(self):
@@ -212,10 +212,10 @@ class RestHandler(RequestHandler):
 
     def options(self, *args, **kwargs):
         methods = set()
-        clazz = self.__class__
-        for method in ('post', 'put', 'get', 'patch', 'delete'):
-            if getattr(clazz, method) != getattr(RequestHandler, method):
-                methods.add(method.upper())
+        clazz = RequestHandler.__name__
+        for method in (self.post, self.put, self.delete, self.get, self.patch):
+            if not method.__qualname__.startswith(clazz):
+                methods.add(method.__name__.upper())
 
         self.set_header('Access-Control-Allow-Methods', ', '.join(methods))
         self.set_status(HTTPStatus.NO_CONTENT.value)

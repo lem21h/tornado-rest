@@ -238,7 +238,7 @@ class AbstractListCommand(object):
             params['filtering'] = cls.post_process_filtering(filtering)
         if sort:
             params['sort'] = sort.get_tuple()
-        if limit and offset:
+        if limit and offset is not None:
             params['limit'] = limit
             params['skip'] = offset
         if projection:
