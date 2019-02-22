@@ -129,7 +129,7 @@ def convert_to_vo_with_mapping(mapping: Dict[str, Type[VO]], source: Dict[str, A
 T = TypeVar('T')
 
 
-class Result(Generic[T]):
+class Result:
     __slots__ = ('_result',)
 
     def __init__(self, result: T):
