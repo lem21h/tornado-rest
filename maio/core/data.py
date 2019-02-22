@@ -1,7 +1,7 @@
 # coding=utf-8
 import json
 from datetime import date
-from typing import Any, Dict, Optional, Tuple, Union, TypeVar, Generic
+from typing import Any, Dict, Optional, Tuple, Union, TypeVar, Generic, Type
 from uuid import UUID, uuid4
 
 from bson import ObjectId
@@ -54,7 +54,7 @@ class VO:
     def __repr__(self) -> str:
         return str(self.to_dict())
 
-    def __eq__(self, other: Optional[Union[Dict, object]]):
+    def __eq__(self, other: Optional[Union[Dict, object]]) -> bool:
         # fast escape
         if other is None:
             return False
@@ -108,6 +108,22 @@ class CustomJsonEncoder(json.JSONEncoder):
         elif isinstance(obj, VO):
             return obj.to_dict()
         return json.JSONEncoder.default(self, obj)
+
+
+def convert_to_dict_with_mapping(mapping: Dict[str, Type[VO]], source: VO, target: Dict[str, Any]) -> Dict[str, Any]:
+    for key in mapping.keys():
+        value = getattr(source, key)
+        if value and isinstance(value, VO):
+            target[key] = value.to_dict()
+    return target
+
+
+def convert_to_vo_with_mapping(mapping: Dict[str, Type[VO]], source: Dict[str, Any], target: VO) -> VO:
+    for key, clazz in mapping.items():
+        value = source.get(key)
+        if value and isinstance(value, dict):
+            setattr(target, key, clazz.from_dict(value))
+    return target
 
 
 T = TypeVar('T')
